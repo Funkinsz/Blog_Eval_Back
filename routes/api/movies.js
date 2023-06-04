@@ -4,9 +4,15 @@ const router = require("express").Router();
 
 router.get("/getMovies", (req, res) => {
   const limit = req.query.limit;
+  const user = req.query.user
   let sql;
+  console.log("test");
   if (limit) {
-    sql = `SELECT * FROM movies ORDER BY created_at ASC LIMIT ${limit}`;
+    if (user) {
+      sql = `SELECT * FROM movies ORDER BY created_at ASC LIMIT ${limit}`;
+    } else {
+      sql = `SELECT * FROM movies ORDER BY created_at ASC LIMIT ${limit}`;
+    }
   } else {
     sql = `SELECT COUNT(*) as count FROM movies`;
   }
@@ -35,13 +41,17 @@ router.post("/deleteMovie", (req, res) => {
 
 router.post("/toggleLiked", (req, res) => {
   const idM = req.body.idMovies;
-  const idU = req.body.idUser;
+  const idU = req.body.user.idUser;
 
   const verify = `SELECT * FROM favorite WHERE idUser = ${idU} AND idMovies = ${idM}`;
 
   connection.query(verify, (err, resultVerify) => {
     if (err) throw err;
+
+    console.log(resultVerify.length);
     if (resultVerify.length > 0) {
+      console.log("2222");
+
       const liked = resultVerify === true ? "1" : "0";
       const update = `UPDATE favorite SET isFav = "${liked}" WHERE idMovies = ${idM} AND idUser = ${idU}`;
 
@@ -49,9 +59,11 @@ router.post("/toggleLiked", (req, res) => {
         if (err) throw err;
         console.log("Film toggle en base de données");
         connection.query(
-          `SELECT * FROM favorite WHERE idMovies=${idM} AND idUser = ${idU}`,
+          `SELECT * FROM favorite WHERE idMovies = ${idM} AND idUser = ${idU}`,
           (err, result) => {
             if (err) throw err;
+            console.log("3333");
+
             console.log(result);
             result[0].liked == 0
               ? (result[0].liked = false)
@@ -61,14 +73,45 @@ router.post("/toggleLiked", (req, res) => {
         );
       });
     } else {
+      console.log("insert");
       const fav = `INSERT INTO favorite (idUser, idMovies, isFav) VALUES(${idU}, ${idM}, 1)`;
 
-      connection.query(fav, (err, result) => {
+      connection.query(fav, (err, resultInsert) => {
         if (err) throw err;
-        res.send(JSON.stringify(result[0]));
+
+        connection.query(
+          `SELECT * FROM favorite WHERE idMovies = ${idM} AND idUser = ${idU}`,
+          (err, result) => {
+            if (err) throw err;
+            console.log("3333");
+
+            console.log(result);
+            result[0].liked == 0
+              ? (result[0].liked = false)
+              : (result[0].liked = true);
+            res.send(JSON.stringify(result[0]));
+          }
+        );
       });
     }
   });
+});
+
+router.get("/isFav", (req, res) => {
+  const idM = req.query.movie;
+  const idU = req.query.user;
+
+  console.log(idM);
+
+  connection.query(
+    `SELECT idFav FROM favorite WHERE idMovies = ${idM} AND idUser = ${idU}`,
+    (err, result) => {
+      if (err) throw err;
+      if (result.length > 0) {
+        res.send(JSON.stringify(result));
+      }
+    }
+  );
 });
 
 router.post("/addMovie", (req, res) => {
